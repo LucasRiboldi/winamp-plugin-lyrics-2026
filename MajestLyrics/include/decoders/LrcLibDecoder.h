@@ -4,14 +4,6 @@
 #include <core/Decoder.h>
 #include <net/HttpClient.h>
 #include <util/StringUtil.h>
-#include <codecvt>
-#include <locale>
-
-static inline std::wstring UTF8ToWide(const std::string& s)
-{
-	std::wstring_convert<std::codecvt_utf8<wchar_t>> conv;
-	return conv.from_bytes(s);
-}
 
 static inline std::string ExtractJsonString(const std::string& json, const std::string& key)
 {

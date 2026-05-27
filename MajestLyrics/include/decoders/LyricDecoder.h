@@ -4,15 +4,17 @@
 #include <decoders/DecoderTypes.h>
 #include <core/Album.h>
 #include <util/StringUtil.h>
-#include <codecvt>
-#include <locale>
 
 namespace MajestLyrics
 {
 	static inline std::string WideToUTF8(const std::wstring& s)
 	{
-		std::wstring_convert<std::codecvt_utf8<wchar_t>> conv;
-		return conv.to_bytes(s);
+		if (s.empty()) return "";
+		int len = WideCharToMultiByte(CP_UTF8, 0, s.c_str(), -1, nullptr, 0, nullptr, nullptr);
+		if (len <= 0) return "";
+		std::string result(len - 1, '\0');
+		WideCharToMultiByte(CP_UTF8, 0, s.c_str(), -1, &result[0], len, nullptr, nullptr);
+		return result;
 	}
 
 	// Tries LRCLib first (free, no key), then ChartLyrics as fallback.

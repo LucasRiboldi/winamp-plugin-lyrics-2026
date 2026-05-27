@@ -1,16 +1,8 @@
 #include <core/LyricHandler.h>
 #include <util/StringUtil.h>
-#include <codecvt>
-#include <locale>
 #include <sstream>
 #include <algorithm>
 #include <vector>
-
-static std::wstring UTF8ToWide(const std::string& s)
-{
-	std::wstring_convert<std::codecvt_utf8<wchar_t>> conv;
-	return conv.from_bytes(s);
-}
 
 LyricHandler::LyricHandler() : album{} {}
 

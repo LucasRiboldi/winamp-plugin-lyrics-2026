@@ -1,10 +1,22 @@
 #pragma once
 #ifndef _MAJEST_STRING_UTIL_
 #define _MAJEST_STRING_UTIL_
+#define NOMINMAX
+#include <Windows.h>
 #include <type_traits>
 #include <string>
 #include <vector>
 #include <algorithm>
+
+static inline std::wstring UTF8ToWide(const std::string& s)
+{
+	if (s.empty()) return L"";
+	int len = MultiByteToWideChar(CP_UTF8, 0, s.c_str(), -1, nullptr, 0);
+	if (len <= 0) return L"";
+	std::wstring result(len - 1, L'\0');
+	MultiByteToWideChar(CP_UTF8, 0, s.c_str(), -1, &result[0], len);
+	return result;
+}
 
 static std::wstring ToLower(const std::wstring& s)
 {

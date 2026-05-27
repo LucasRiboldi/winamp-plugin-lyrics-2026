@@ -41,7 +41,6 @@ HWND CreateEmbeddedWindow(embedWindowState* embedWindow, const GUID embedWindowG
 	embedWindow->flags |= EMBED_FLAGS_NOWINDOWMENU;
 
 	HWND frame = (HWND)SendMessage(plugin.hwndParent, WM_WA_IPC, (WPARAM)embedWindow, IPC_GET_EMBEDIF);
-	WASABI_API_APP->app_registerGlobalWindow(frame);
 	return frame;
 }
 

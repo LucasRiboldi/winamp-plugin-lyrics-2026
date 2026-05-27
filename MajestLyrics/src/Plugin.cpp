@@ -1,6 +1,5 @@
 #include <core/LyricHandler.h>
 #include <decoders/LyricDecoder.h>
-#include <winamp/WinampApi.h>
 #include <winamp/EmbedWindow.h>
 #include "res/resource.h"
 
@@ -14,12 +13,6 @@
 #include <exception>
 #include <atomic>
 
-#include <api\service\waservicefactory.h>
-#include <api\application\api_application.h>
-#include <bfc\platform\types.h>
-#include <rpcdce.h>
-#include <Agave\Language\api_language.h>
-#include <Agave\Language\lang.h>
 #include <Winamp\wa_ipc.h>
 #include <Winamp\gen.h>
 #include <Winamp\ipc_pe.h>
@@ -35,13 +28,8 @@
 #define SETTINGS_FILE_PATH    ".\\Plugins\\MajestLyrics\\options.txt"
 
 const static GUID wndStateGUID = { 0x3fcd6a40, 0x95d2, 0x4b0a, { 0x8a, 0x96, 0x24, 0x7e, 0xc5, 0xc3, 0x32, 0x9b } };
-const static GUID wndLangGUID  = { 0x486676e6, 0x9306, 0x4fcf, { 0x9d, 0x9b, 0x76, 0x5a, 0x65, 0xf9, 0xfe, 0xb8 } };
 
 const std::pair<unsigned, unsigned> BUTTON_OFFSET{ 0, 0 };
-
-api_service     *WASABI_API_SVC = 0;
-api_language    *WASABI_API_LNG = 0;
-api_application *WASABI_API_APP = 0;
 
 LRESULT CALLBACK ChildWndProc    (HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam);
 LRESULT CALLBACK WaWndProc       (HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam);
@@ -51,7 +39,6 @@ void GetSongLyrics(HWND hwnd);
 void ReadSettingsFile(HWND hwnd);
 void SaveSettings(HWND hwnd);
 
-HINSTANCE           WASABI_API_LNG_HINST = 0, WASABI_API_ORIG_HINST = 0;
 embedWindowState    myWndState = { 0 };
 WNDPROC             lpWndProcOld = 0;
 HWND                embedWnd = NULL, childWnd = NULL;
@@ -83,16 +70,6 @@ winampGeneralPurposePlugin plugin =
 extern "C" __declspec(dllexport) winampGeneralPurposePlugin* winampGetGeneralPurposePlugin()
 {
 	return &plugin;
-}
-
-template <class api_T>
-void ServiceBuild(api_T*& api_t, GUID factoryGUID_t)
-{
-	if (WASABI_API_SVC)
-	{
-		waServiceFactory* factory = WASABI_API_SVC->service_getServiceByGuid(factoryGUID_t);
-		if (factory) api_t = (api_T*)factory->getInterface();
-	}
 }
 
 LRESULT CALLBACK WaWndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
@@ -149,16 +126,8 @@ int init()
 		return 1;
 	}
 
-	WASABI_API_SVC = (api_service*)SendMessage(plugin.hwndParent, WM_WA_IPC, 0, IPC_GET_API_SERVICE);
-	if (WASABI_API_SVC == (api_service*)1) WASABI_API_SVC = nullptr;
-
-	if (!WASABI_API_SVC) return 1;
-
-	ServiceBuild(WASABI_API_LNG, languageApiGUID);
-	WASABI_API_START_LANG(plugin.hDllInstance, wndLangGUID);
-
 	static char szDescription[256];
-	StringCchPrintfA(szDescription, 256, WASABI_API_LNGSTRING(IDS_LANGUAGE_EXAMPLE), PLUGIN_VERSION);
+	StringCchPrintfA(szDescription, 256, "Majest Lyrics %s", PLUGIN_VERSION);
 	plugin.description = szDescription;
 
 	ini_file = (LPWSTR)SendMessage(plugin.hwndParent, WM_WA_IPC, 0, IPC_GETINIFILE);
@@ -168,22 +137,15 @@ int init()
 	else
 		lpWndProcOld = (WNDPROC)SetWindowLongPtrA(plugin.hwndParent, GWLP_WNDPROC, (LONG_PTR)WaWndProc);
 
-	ServiceBuild(WASABI_API_APP, applicationApiServiceGuid);
-
 	embedWnd = CreateEmbeddedWindow(&myWndState, wndStateGUID);
-	SetWindowText(embedWnd, WASABI_API_LNGSTRINGW(IDS_PLUGIN_NAME));
+	SetWindowText(embedWnd, L"Majest Lyrics");
 
-	childWnd = WASABI_API_CREATEDIALOG(IDD_DIALOGVIEW, embedWnd, ChildWndProc);
-	if (childWnd && WASABI_API_APP) WASABI_API_APP->app_addModelessDialog(childWnd);
+	childWnd = CreateDialog(plugin.hDllInstance, MAKEINTRESOURCE(IDD_DIALOGVIEW), embedWnd, (DLGPROC)ChildWndProc);
 
 	EMBEDWND_ID = SendMessage(plugin.hwndParent, WM_WA_IPC, 0, IPC_REGISTER_LOWORD_COMMAND);
 
-	ACCEL accel = { FVIRTKEY | FALT, '1', EMBEDWND_ID };
-	HACCEL hAccel = CreateAcceleratorTable(&accel, 1);
-	if (hAccel) WASABI_API_APP->app_addAccelerators(childWnd, &hAccel, 1, TRANSLATE_MODE_NORMAL);
-
 	ReadSettingsFile(plugin.hwndParent);
-	AddEmbeddedWindowToMenus(TRUE, EMBEDWND_ID, WASABI_API_LNGSTRINGW(IDS_PLUGIN_NAME), -1);
+	AddEmbeddedWindowToMenus(TRUE, EMBEDWND_ID, (LPWSTR)L"Majest Lyrics", -1);
 
 	return GEN_INIT_SUCCESS;
 }
@@ -317,10 +279,9 @@ void GetSongLyrics(HWND hwnd)
 
 			if (!handler.HasSong(wTitle))
 			{
-				std::wstring_convert<std::codecvt_utf8<wchar_t>> conv;
 				handler.GetLyrics(
-					conv.to_bytes(artist),
-					conv.to_bytes(std::wstring(title)),
+					MajestLyrics::WideToUTF8(std::wstring(artist)),
+					MajestLyrics::WideToUTF8(std::wstring(title)),
 					MajestLyrics::TryDecode);
 			}
 

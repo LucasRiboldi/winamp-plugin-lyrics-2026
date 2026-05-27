@@ -3,7 +3,6 @@
 
 #include <Winamp\gen.h>
 #include <Winamp\wa_ipc.h>
-#include <winamp/WinampApi.h>
 
 #ifndef WINAMP_NEXT_WINDOW
 #define WINAMP_NEXT_WINDOW 40063

@@ -4,8 +4,6 @@
 #include <core/Decoder.h>
 #include <net/HttpClient.h>
 #include <util/StringUtil.h>
-#include <codecvt>
-#include <locale>
 #include <unordered_map>
 
 static inline std::string ExtractXmlTag(const std::string& xml, const std::string& tag)
@@ -42,9 +40,8 @@ public:
 		std::string lyrics = ExtractXmlTag(data, "Lyric");
 		if (lyrics.empty() || lyrics == "Not found") return false;
 
-		std::wstring_convert<std::codecvt_utf8<wchar_t>> conv;
-		out_album.name = conv.from_bytes(artist);
-		out_album.songs[ToLower(conv.from_bytes(song))] = conv.from_bytes(lyrics);
+		out_album.name = UTF8ToWide(artist);
+		out_album.songs[ToLower(UTF8ToWide(song))] = UTF8ToWide(lyrics);
 		return true;
 	}
 

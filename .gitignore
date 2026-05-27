@@ -7,6 +7,5 @@ WinampLyricsFinder/Release/
 *.exp
 *.pdb
 *.ilk
-# sdk/ contains Winamp SDK headers — download manually, see sdk/PUT_SDK_HERE.txt
-sdk/**
-!sdk/PUT_SDK_HERE.txt
+# sdk/ contains WACUP SDK headers (public, from getwacup.com/sdk/)
+# All files tracked in git — no download required

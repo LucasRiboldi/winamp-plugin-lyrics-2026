@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 <div align="center">
 
 # 🎵 Majest Lyrics
@@ -318,3 +319,7 @@ MajestLyrics/
 Feito com 🎧 para os fãs do Winamp ao redor do mundo.
 
 </div>
+=======
+# winamp-plugin-lyrics-2026
+Modern lyrics plugin for Winamp featuring synchronized lyrics, metadata integration and customizable display interface.
+>>>>>>> 26e64547e1f8d9dfcea872aba804d68322fdb34a

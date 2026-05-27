@@ -1,0 +1,14 @@
+Place the Winamp SDK headers in this folder.
+
+Expected structure:
+  sdk/
+    Winamp/       (gen.h, wa_ipc.h, wa_dlg.h, ipc_pe.h, ...)
+    Agave/        (Language/api_language.h, Language/lang.h, ...)
+    Wasabi/
+      api/        (service/, application/, ...)
+      bfc/        (platform/types.h, ...)
+
+The Winamp SDK is publicly available as part of the Winamp open-source release.
+
+The sdk/ folder is excluded from git (.gitignore) because it is
+a third-party dependency with its own license.

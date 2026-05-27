@@ -1,0 +1,12 @@
+Debug/
+Release/
+.vs/
+WinampLyricsFinder/Debug/
+WinampLyricsFinder/Release/
+*.obj
+*.exp
+*.pdb
+*.ilk
+# sdk/ contains Winamp SDK headers — download manually, see sdk/PUT_SDK_HERE.txt
+sdk/**
+!sdk/PUT_SDK_HERE.txt

@@ -12,6 +12,8 @@
 #define IDC_DISABLE_CHECK               1017
 #define IDC_THREADING_CHECK             1018
 #define IDC_SCROLLING_CHECK             1019
+#define IDC_FONT_MINUS                  1020
+#define IDC_FONT_PLUS                   1021
 #define ID_SUBMENU_RERENDER             40003
 #define ID_SUBMENU_VIEWFILEINFO         40007
 
@@ -19,7 +21,7 @@
 #ifndef APSTUDIO_READONLY_SYMBOLS
 #define _APS_NEXT_RESOURCE_VALUE        107
 #define _APS_NEXT_COMMAND_VALUE         40010
-#define _APS_NEXT_CONTROL_VALUE         1020
+#define _APS_NEXT_CONTROL_VALUE         1022
 #define _APS_NEXT_SYMED_VALUE           101
 #endif
 #endif

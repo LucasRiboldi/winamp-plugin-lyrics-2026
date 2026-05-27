@@ -1,5 +1,6 @@
 #include <core/LyricHandler.h>
 #include <decoders/LyricDecoder.h>
+#include <decoders/MusixmatchDecoder.h>
 #include <winamp/EmbedWindow.h>
 #include "res/resource.h"
 
@@ -53,6 +54,25 @@ COLORREF            rgbBgColor;
 bool                isEnabled = true, isThreadingEnabled = true, isColorChanged = false, isScrollingEnabled = false;
 int                 iCurrentLineScrolled = 0;
 char                fullFilename[MAX_PATH];
+// Lyrics font size (points). Clamped to [6,24]. Persisted to options.txt.
+int                 g_fontSize = 9;
+HFONT               g_lyricFont = NULL;
+
+// Recreate the lyric label's font from g_fontSize and apply it.
+static void ApplyLyricFont()
+{
+	if (!childWnd) return;
+	HDC hdc = GetDC(childWnd);
+	int height = -MulDiv(g_fontSize, GetDeviceCaps(hdc, LOGPIXELSY), 72);
+	ReleaseDC(childWnd, hdc);
+	HFONT hNew = CreateFontW(height, 0, 0, 0, FW_NORMAL, FALSE, FALSE, FALSE,
+		DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS,
+		CLEARTYPE_QUALITY, DEFAULT_PITCH | FF_DONTCARE, L"Microsoft Sans Serif");
+	if (!hNew) return;
+	SendDlgItemMessage(childWnd, IDC_LYRIC_STRING, WM_SETFONT, (WPARAM)hNew, TRUE);
+	if (g_lyricFont) DeleteObject(g_lyricFont);
+	g_lyricFont = hNew;
+}
 
 void config();
 void quit();
@@ -116,6 +136,7 @@ void config()
 void quit()
 {
 	DestroyEmbeddedWindow(&myWndState);
+	if (g_lyricFont) { DeleteObject(g_lyricFont); g_lyricFont = NULL; }
 }
 
 int init()
@@ -148,6 +169,7 @@ int init()
 	EMBEDWND_ID = SendMessage(plugin.hwndParent, WM_WA_IPC, 0, IPC_REGISTER_LOWORD_COMMAND);
 
 	ReadSettingsFile(plugin.hwndParent);
+	ApplyLyricFont();
 	AddEmbeddedWindowToMenus(TRUE, EMBEDWND_ID, (LPWSTR)L"Majest Lyrics", -1);
 
 	return GEN_INIT_SUCCESS;
@@ -157,13 +179,30 @@ LRESULT CALLBACK ChildWndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lPa
 {
 	switch (message)
 	{
+		case WM_COMMAND:
+		{
+			WORD ctl = LOWORD(wParam);
+			if (ctl == IDC_FONT_MINUS || ctl == IDC_FONT_PLUS)
+			{
+				g_fontSize += (ctl == IDC_FONT_PLUS) ? 1 : -1;
+				if (g_fontSize < 6)  g_fontSize = 6;
+				if (g_fontSize > 24) g_fontSize = 24;
+				ApplyLyricFont();
+				SaveSettings(hwnd);
+				return 0;
+			}
+			break;
+		}
 		case IDC_REFRESH_BUTTON:
 		{
 			const wchar_t* filename = (const wchar_t*)SendMessage(plugin.hwndParent, WM_WA_IPC, 0, IPC_GET_PLAYING_FILENAME);
-			wchar_t title[FILE_INFO_BUFFER_SIZE]{ 0 };
-			extendedFileInfoStructW fi{ filename, L"TITLE", title, FILE_INFO_BUFFER_SIZE };
+			wchar_t artist[FILE_INFO_BUFFER_SIZE]{ 0 };
+			wchar_t title [FILE_INFO_BUFFER_SIZE]{ 0 };
+			extendedFileInfoStructW fi{ filename, L"ARTIST", artist, FILE_INFO_BUFFER_SIZE };
 			SendMessage(plugin.hwndParent, WM_WA_IPC, (WPARAM)&fi, IPC_GET_EXTENDED_FILE_INFOW_HOOKABLE);
-			handler.ClearSong(ToLower(std::wstring(title)));
+			fi.metadata = L"TITLE"; fi.ret = title;
+			SendMessage(plugin.hwndParent, WM_WA_IPC, (WPARAM)&fi, IPC_GET_EXTENDED_FILE_INFOW_HOOKABLE);
+			handler.ClearSong(SongKey(std::wstring(artist), std::wstring(title)));
 			activeSong = L"";
 			GetSongLyrics(plugin.hwndParent);
 			break;
@@ -279,13 +318,12 @@ void GetSongLyrics(HWND hwnd)
 	fi.metadata = L"TITLE"; fi.ret = title;
 	SendMessage(plugin.hwndParent, WM_WA_IPC, (WPARAM)&fi, IPC_GET_EXTENDED_FILE_INFOW_HOOKABLE);
 
-	if (activeSong != title)
+	std::wstring songKey = SongKey(std::wstring(artist), std::wstring(title));
+	if (activeSong != songKey)
 	{
 		try
 		{
-			std::wstring wTitle = ToLower(std::wstring(title));
-
-			if (!handler.HasSong(wTitle))
+			if (!handler.HasSong(songKey))
 			{
 				handler.GetLyrics(
 					MajestLyrics::WideToUTF8(std::wstring(artist)),
@@ -293,8 +331,8 @@ void GetSongLyrics(HWND hwnd)
 					MajestLyrics::TryDecode);
 			}
 
-			activeSong           = wTitle;
-			activeSongLyrics     = handler.GetSong(wTitle);
+			activeSong           = songKey;
+			activeSongLyrics     = handler.GetSong(songKey);
 			iCurrentLineScrolled = 0;
 
 			SetDlgItemText(childWnd, IDC_LYRIC_STRING,
@@ -314,6 +352,8 @@ void ReadSettingsFile(HWND hwnd)
 	char* lastSlash = strrchr(dllPath, '\\');
 	if (lastSlash) *lastSlash = '\0';
 	StringCchPrintfA(fullFilename, MAX_PATH, "%s\\MajestLyrics\\options.txt", dllPath);
+	// Tell MusixmatchDecoder where to persist its anonymous usertoken between sessions.
+	MusixmatchDecoder::s_plugin_dir = std::string(dllPath) + "\\MajestLyrics";
 	std::ifstream inStream{ fullFilename };
 
 	if (!inStream.is_open())
@@ -322,7 +362,7 @@ void ReadSettingsFile(HWND hwnd)
 		CreateDirectoryA(folderPath.substr(0, folderPath.find_last_of('\\')).c_str(), NULL);
 		std::ofstream outStream{ fullFilename };
 		if (outStream.is_open())
-			outStream << "enable=1\nthreading=1\nscrolling=0";
+			outStream << "enable=1\nthreading=1\nscrolling=0\nfontsize=9";
 		else
 			MessageBoxA(hwnd, "Failed to create settings file.", "Majest Lyrics", MB_OK | MB_ICONERROR);
 		return;
@@ -335,8 +375,14 @@ void ReadSettingsFile(HWND hwnd)
 		{
 			auto token = Split(line, "=");
 			if (token.size() < 2) continue;
-			if      (token[0] == "enable")    isEnabled          = atoi(token[1].c_str()) != 0;
-			else if (token[0] == "threading") isThreadingEnabled = atoi(token[1].c_str()) != 0;
+			if      (token[0] == "enable")         isEnabled                   = atoi(token[1].c_str()) != 0;
+			else if (token[0] == "threading")      isThreadingEnabled          = atoi(token[1].c_str()) != 0;
+			else if (token[0] == "fontsize")
+			{
+				g_fontSize = atoi(token[1].c_str());
+				if (g_fontSize < 6)  g_fontSize = 6;
+				if (g_fontSize > 24) g_fontSize = 24;
+			}
 			else if (token[0] == "scrolling")
 			{
 #ifdef ENABLE_SCROLLING
@@ -357,9 +403,10 @@ void SaveSettings(HWND hwnd)
 {
 	std::ofstream outStream{ fullFilename };
 	if (outStream.is_open())
-		outStream << "enable=" << isEnabled
-		          << "\nthreading=" << isThreadingEnabled
-		          << "\nscrolling=" << isScrollingEnabled;
+		outStream << "enable="         << isEnabled
+		          << "\nthreading="    << isThreadingEnabled
+		          << "\nscrolling="    << isScrollingEnabled
+		          << "\nfontsize="     << g_fontSize;
 	else
 		MessageBoxA(hwnd, "Failed to save settings.", "Majest Lyrics", MB_OK | MB_ICONERROR);
 }

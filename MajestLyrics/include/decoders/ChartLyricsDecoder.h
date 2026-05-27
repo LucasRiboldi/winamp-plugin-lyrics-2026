@@ -14,7 +14,11 @@ static inline std::string ExtractXmlTag(const std::string& xml, const std::strin
 	if (start == std::string::npos) return "";
 	start += open.size();
 	size_t end = xml.find(close, start);
-	return end == std::string::npos ? "" : xml.substr(start, end - start);
+	if (end == std::string::npos) return "";
+	const size_t MAX_LYRICS_BYTES = 65536;
+	size_t length = end - start;
+	if (length > MAX_LYRICS_BYTES) length = MAX_LYRICS_BYTES;
+	return xml.substr(start, length);
 }
 
 // Fetches lyrics via ChartLyrics API (fallback source).
@@ -41,7 +45,9 @@ public:
 		if (lyrics.empty() || lyrics == "Not found") return false;
 
 		out_album.name = UTF8ToWide(artist);
-		out_album.songs[ToLower(UTF8ToWide(song))] = UTF8ToWide(lyrics);
+		std::wstring wideLyrics = UTF8ToWide(lyrics);
+		StripCR(wideLyrics);
+		out_album.songs[SongKey(UTF8ToWide(artist), UTF8ToWide(song))] = std::move(wideLyrics);
 		return true;
 	}
 

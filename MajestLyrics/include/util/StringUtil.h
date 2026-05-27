@@ -50,6 +50,19 @@ static std::string UrlEncode(const std::string& str)
 	return out;
 }
 
+// Canonical cache key combining artist and title.
+// U+001F (Unit Separator) is used as delimiter — never present in music metadata.
+static inline std::wstring SongKey(const std::wstring& artist, const std::wstring& title)
+{
+	return ToLower(artist) + L"\x1F" + ToLower(title);
+}
+
+// Remove all carriage-return characters from a wide string in-place.
+static inline void StripCR(std::wstring& s)
+{
+	s.erase(std::remove(s.begin(), s.end(), L'\r'), s.end());
+}
+
 static inline std::vector<std::string> Split(const std::string& str, const std::string separator) noexcept
 {
 	std::vector<std::string> result;

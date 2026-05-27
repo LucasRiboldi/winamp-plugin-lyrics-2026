@@ -116,7 +116,11 @@
     <ClInclude Include="include\decoders\DecoderTypes.h" />
     <ClInclude Include="include\decoders\LrcLibDecoder.h" />
     <ClInclude Include="include\decoders\LyricDecoder.h" />
+    <ClInclude Include="include\decoders\LyricsOvhDecoder.h" />
+    <ClInclude Include="include\decoders\LyricaDecoder.h" />
+    <ClInclude Include="include\decoders\MusixmatchDecoder.h" />
     <ClInclude Include="include\net\HttpClient.h" />
+    <ClInclude Include="include\util\JsonUtil.h" />
     <ClInclude Include="include\util\StringUtil.h" />
     <ClInclude Include="include\winamp\EmbedWindow.h" />
     <ClInclude Include="include\winamp\WinampApi.h" />

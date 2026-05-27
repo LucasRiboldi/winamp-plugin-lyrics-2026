@@ -17,14 +17,18 @@ namespace MajestLyrics
 		return result;
 	}
 
-	// Tries LRCLib first (free, no key), then ChartLyrics as fallback.
-	// On failure, inserts an empty sentinel to prevent repeated requests.
+	// Provider chain ordered by reliability and data quality.
+	// Musixmatch is skipped automatically when no API key is configured.
+	// On full failure, inserts an empty sentinel to prevent repeated requests.
 	static void TryDecode(const std::string& artist, const std::string& song, Album& out_album)
 	{
-		if (LrcLibDecoder().DecodeLyrics(artist, song, out_album)) return;
-		if (ChartLyricsDecoder().DecodeLyrics(artist, song, out_album)) return;
+		if (LrcLibDecoder().DecodeLyrics(artist, song, out_album))     return; // free, synced+plain
+		if (LyricsOvhDecoder().DecodeLyrics(artist, song, out_album))  return; // free, plain
+		if (MusixmatchDecoder().DecodeLyrics(artist, song, out_album)) return; // key required, plain
+		if (ChartLyricsDecoder().DecodeLyrics(artist, song, out_album)) return; // free, XML, plain
+		if (LyricaDecoder().DecodeLyrics(artist, song, out_album))     return; // aggregator, experimental
 		out_album.name = UTF8ToWide(artist);
-		out_album.songs[ToLower(UTF8ToWide(song))] = L"";
+		out_album.songs[SongKey(UTF8ToWide(artist), UTF8ToWide(song))] = L"";
 	}
 }
 

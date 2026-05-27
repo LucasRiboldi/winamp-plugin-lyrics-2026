@@ -12,8 +12,10 @@ static inline std::string ExtractJsonString(const std::string& json, const std::
 	if (pos == std::string::npos) return "";
 	pos += search.size();
 
+	const size_t MAX_LYRICS_BYTES = 65536;
 	std::string result;
-	while (pos < json.size() && json[pos] != '"')
+	result.reserve(1024);
+	while (pos < json.size() && json[pos] != '"' && result.size() < MAX_LYRICS_BYTES)
 	{
 		if (json[pos] == '\\' && pos + 1 < json.size())
 		{
@@ -24,7 +26,8 @@ static inline std::string ExtractJsonString(const std::string& json, const std::
 				case '"':  result += '"';  break;
 				case '\\': result += '\\'; break;
 				case 't':  result += '\t'; break;
-				default:   result += json[pos]; break;
+				case 'u':  pos += 4;       break; // skip \uXXXX sequences
+				default:                   break;
 			}
 		}
 		else result += json[pos];
@@ -45,7 +48,7 @@ public:
 			"&track_name="  + UrlEncode(song);
 
 		std::string data = HttpClient::Get(url);
-		if (data == "failed") return false;
+		if (data == "failed" || data == "failed_tls") return false;
 
 		std::string lyrics = ExtractJsonString(data, "plainLyrics");
 		if (lyrics.empty()) return false;

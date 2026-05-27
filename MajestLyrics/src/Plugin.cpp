@@ -22,7 +22,7 @@
 #define ENABLE_SCROLLING
 #define PLUGIN_NAME          "Majest Lyrics"
 #define PLUGIN_VERSION       "v1.0"
-#define FILE_INFO_BUFFER_SIZE 128
+#define FILE_INFO_BUFFER_SIZE 1024
 #define MAX_THREAD_COUNT      1
 #define LYRICS_LABEL_TOP      0
 #define SETTINGS_FILE_PATH    ".\\Plugins\\MajestLyrics\\options.txt"
@@ -85,7 +85,10 @@ LRESULT CALLBACK WaWndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam
 				if (isEnabled)
 				{
 					if (isThreadingEnabled && activeThreads < MAX_THREAD_COUNT)
+					{
+						++activeThreads;
 						std::thread(GetSongLyrics, hwnd).detach();
+					}
 					else
 						GetSongLyrics(hwnd);
 				}
@@ -260,7 +263,12 @@ BOOL CALLBACK OptionWindowProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lP
 
 void GetSongLyrics(HWND hwnd)
 {
-	while (!lyric_mutex.try_lock()) { Sleep(10); }
+	struct ScopeGuard {
+		std::mutex& mtx;
+		bool locked = false;
+		explicit ScopeGuard(std::mutex& m) : mtx(m) { mtx.lock(); locked = true; }
+		~ScopeGuard() { if (locked) mtx.unlock(); --activeThreads; }
+	} guard(lyric_mutex);
 
 	const wchar_t* filename = (const wchar_t*)SendMessage(plugin.hwndParent, WM_WA_IPC, 0, IPC_GET_PLAYING_FILENAME);
 	wchar_t artist[FILE_INFO_BUFFER_SIZE]{ 0 };
@@ -297,14 +305,15 @@ void GetSongLyrics(HWND hwnd)
 			MessageBoxA(hwnd, e.what(), "Majest Lyrics - Error", MB_OK | MB_ICONERROR);
 		}
 	}
-
-	lyric_mutex.unlock();
-	--activeThreads;
 }
 
 void ReadSettingsFile(HWND hwnd)
 {
-	GetFullPathNameA(SETTINGS_FILE_PATH, MAX_PATH, fullFilename, NULL);
+	char dllPath[MAX_PATH] = { 0 };
+	GetModuleFileNameA(plugin.hDllInstance, dllPath, MAX_PATH);
+	char* lastSlash = strrchr(dllPath, '\\');
+	if (lastSlash) *lastSlash = '\0';
+	StringCchPrintfA(fullFilename, MAX_PATH, "%s\\MajestLyrics\\options.txt", dllPath);
 	std::ifstream inStream{ fullFilename };
 
 	if (!inStream.is_open())

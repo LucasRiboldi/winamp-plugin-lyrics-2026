@@ -35,7 +35,7 @@ public:
 		};
 
 		std::string data = HttpClient::Get(url, false, hdrs);
-		if (data == "failed") return false;
+		if (data == "failed" || data == "failed_tls") return false;
 
 		std::string lyrics = ExtractXmlTag(data, "Lyric");
 		if (lyrics.empty() || lyrics == "Not found") return false;

@@ -71,14 +71,15 @@ std::string HttpClient::Get(const std::string& url,
 		WinHttpAddRequestHeaders(hRequest, header.c_str(), (DWORD)-1, WINHTTP_ADDREQ_FLAG_ADD);
 	}
 
-	if (!WinHttpSendRequest(hRequest, WINHTTP_NO_ADDITIONAL_HEADERS, 0,
-	                         WINHTTP_NO_REQUEST_DATA, 0, 0, 0) ||
-	    !WinHttpReceiveResponse(hRequest, nullptr))
+	bool sent = WinHttpSendRequest(hRequest, WINHTTP_NO_ADDITIONAL_HEADERS, 0,
+	                               WINHTTP_NO_REQUEST_DATA, 0, 0, 0);
+	if (!sent || !WinHttpReceiveResponse(hRequest, nullptr))
 	{
+		DWORD err = GetLastError();
 		WinHttpCloseHandle(hRequest);
 		WinHttpCloseHandle(hConnect);
 		WinHttpCloseHandle(hSession);
-		return "failed";
+		return (err == ERROR_WINHTTP_SECURE_FAILURE) ? "failed_tls" : "failed";
 	}
 
 	std::string response;
